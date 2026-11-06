@@ -3,9 +3,6 @@ package com.nasa.service;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.google.gson.reflect.TypeToken;
-import com.nasa.model.EpicResponse;
-
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -13,6 +10,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 
 public class NasaApiClient {
@@ -36,14 +34,14 @@ public class NasaApiClient {
         this.gson = new Gson();
     }
 
-    // Novo método para buscar Galáxias/Astros na Biblioteca da NASA (Garantido carregar imagens!)
-    public NasaImageResult searchSpaceObject(String query) throws Exception {
+    // Retorna até 20 resultados válidos da Biblioteca da NASA para galáxias e astros
+    public List<NasaImageResult> searchSpaceObjects(String query) throws Exception {
         String encodedQuery = URLEncoder.encode(query, StandardCharsets.UTF_8);
         String url = "https://images-api.nasa.gov/search?q=" + encodedQuery + "&media_type=image";
-        
+
         HttpRequest request = HttpRequest.newBuilder().uri(URI.create(url)).GET().build();
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
+        
         if (response.statusCode() != 200) {
             throw new RuntimeException("Erro ao consultar Biblioteca NASA: Código " + response.statusCode());
         }
@@ -56,37 +54,33 @@ public class NasaApiClient {
             throw new RuntimeException("Nenhum registro visual encontrado para: " + query);
         }
 
-        // Pega o primeiro resultado válido
-        JsonObject firstItem = items.get(0).getAsJsonObject();
-        JsonObject data = firstItem.getAsJsonArray("data").get(0).getAsJsonObject();
-        
-        String title = data.get("title").getAsString();
-        String description = data.get("description").getAsString();
-        String dateCreated = data.get("date_created").getAsString().substring(0, 10);
+        List<NasaImageResult> results = new ArrayList<>();
+        int limit = Math.min(items.size(), 20); // Pega até 20 imagens
 
-        JsonArray links = firstItem.getAsJsonArray("links");
-        String imgUrl = links.get(0).getAsJsonObject().get("href").getAsString();
+        for (int i = 0; i < limit; i++) {
+            try {
+                JsonObject item = items.get(i).getAsJsonObject();
+                JsonObject data = item.getAsJsonArray("data").get(0).getAsJsonObject();
 
-        return new NasaImageResult(title + " (" + dateCreated + ")", description, imgUrl);
+                String title = data.has("title") ? data.get("title").getAsString() : "Sem Título";
+                String description = data.has("description") ? data.get("description").getAsString() : "Sem descrição disponível.";
+                String dateCreated = data.has("date_created") ? data.get("date_created").getAsString().substring(0, 10) : "";
+
+                JsonArray links = item.getAsJsonArray("links");
+                if (links != null && links.size() > 0) {
+                    String imgUrl = links.get(0).getAsJsonObject().get("href").getAsString();
+                    results.add(new NasaImageResult(title + " (" + dateCreated + ")", description, imgUrl));
+                }
+            } catch (Exception ignored) {}
+        }
+
+        if (results.isEmpty()) {
+            throw new RuntimeException("Nenhum registro visual válido encontrado para: " + query);
+        }
+
+        return results;
     }
 
-    public EpicResponse fetchEpic(String date) throws Exception {
-        String url = "https://api.nasa.gov/EPIC/api/natural/date/" + date + "?api_key=" + API_KEY;
-        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(url)).GET().build();
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        
-        if (response.statusCode() != 200) {
-            throw new RuntimeException("Erro ao consultar EPIC: Código " + response.statusCode());
-        }
-        
-        List<EpicResponse> list = gson.fromJson(response.body(), new TypeToken<List<EpicResponse>>(){}.getType());
-        if (list == null || list.isEmpty()) {
-            throw new RuntimeException("Nenhuma imagem EPIC encontrada para esta data.");
-        }
-        return list.get(0);
-    }
-
-    // Classe auxiliar interna para o resultado da busca de imagens
     public static class NasaImageResult {
         private final String title;
         private final String description;
