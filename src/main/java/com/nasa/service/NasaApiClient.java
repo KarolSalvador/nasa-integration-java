@@ -13,7 +13,17 @@ import java.time.Duration;
 import java.util.List;
 
 public class NasaApiClient {
-    private static final String API_KEY = "DEMO_KEY";
+    // Lê a chave das variáveis de ambiente do sistema operacional
+    private static final String API_KEY = resolveApiKey();
+
+    private static String resolveApiKey() {
+        String envKey = System.getenv("NASA_API_KEY");
+        if (envKey != null && !envKey.isEmpty()) {
+            return envKey;
+        }
+        return "DEMO_KEY"; // Fallback caso a variável não esteja configurada
+    }
+
     private final HttpClient httpClient;
     private final Gson gson;
 
@@ -25,7 +35,6 @@ public class NasaApiClient {
     }
 
     public ApodResponse fetchApod(String date) throws Exception {
-        // Monta o endereço com a URL da API e a data que o user vai informar
         String url = "https://api.nasa.gov/planetary/apod?api_key=" + API_KEY + "&date=" + date;
         HttpRequest request = HttpRequest.newBuilder().uri(URI.create(url)).GET().build();
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
@@ -37,7 +46,6 @@ public class NasaApiClient {
     }
 
     public EpicResponse fetchEpic(String date) throws Exception {
-        // Monta o endereço com a URL da API e a data que o user vai informar
         String url = "https://api.nasa.gov/EPIC/api/natural/date/" + date + "?api_key=" + API_KEY;
         HttpRequest request = HttpRequest.newBuilder().uri(URI.create(url)).GET().build();
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
