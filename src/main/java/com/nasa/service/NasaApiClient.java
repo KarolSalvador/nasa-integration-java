@@ -37,7 +37,7 @@ public class NasaApiClient {
     // Retorna até 20 resultados válidos da Biblioteca da NASA para galáxias e astros
     public List<NasaImageResult> searchSpaceObjects(String query) throws Exception {
         String encodedQuery = URLEncoder.encode(query, StandardCharsets.UTF_8);
-        String url = "https://images-api.nasa.gov/search?q=" + encodedQuery + "&media_type=image";
+        String url = "https://images-api.nasa.gov/search?q=" + encodedQuery + "&media_type=image&api_key=" + API_KEY;
 
         HttpRequest request = HttpRequest.newBuilder().uri(URI.create(url)).GET().build();
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
